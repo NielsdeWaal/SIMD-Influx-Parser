@@ -121,6 +121,7 @@ unsafe fn shuffle_lookup(record: &str) -> Vec<usize> {
 	// /* 0 */ 0x01 | 0x10 | 0x20, // " " | "\0" | "\n"
 	// /* 0 */ 0x01 | 0x20, // " " | "\n"
 	/* 0 */ 0x01, // " "
+	// /* 0 */ 0x01 | 0x10, // " " | "\0"
 	/* 1 */ 0x00,
 	/* 2 */ 0x00,
 	/* 3 */ 0x00,
@@ -131,8 +132,8 @@ unsafe fn shuffle_lookup(record: &str) -> Vec<usize> {
 	/* 8 */ 0x00,
 	// /* 9 */ 0x08, // "i"
 	/* 9 */ 0x00,
-	// /* a */ 0x20, // "\n"
-	/* a */ 0x00,
+	/* a */ 0x20, // "\n"
+	// /* a */ 0x00,
 	/* b */ 0x00,
 	/* c */ 0x02, // ","
 	/* d */ 0x04, // "="
@@ -141,8 +142,9 @@ unsafe fn shuffle_lookup(record: &str) -> Vec<usize> {
     ];
     let high_nibbles: [u8; 16] = [
 	// /* 0 */ 0x10, // "\0"
-	/* 0 */ 0x00,
-	// /* 0 */ 0x20, // "\n"
+	// /* 0 */ 0x10 | 0x20, // "\0" | "\n"
+	// /* 0 */ 0x00,
+	/* 0 */ 0x20, // "\n"
 	/* 1 */ 0x00,
 	/* 2 */ 0x01 | 0x02, // " " | ","
 	/* 3 */ 0x04, // "="
@@ -168,7 +170,7 @@ unsafe fn shuffle_lookup(record: &str) -> Vec<usize> {
 	// let chunk = record.get_unchecked(idx..idx + SIMD_LENGTH);
 	let mut chunk: [u8; SIMD_LENGTH] = [0x00; SIMD_LENGTH];
 	chunk.as_mut_ptr().copy_from(record.as_ptr().add(idx), SIMD_LENGTH);
-	println!("chunk: {chunk:#x?}");
+	// println!("chunk: {chunk:#x?}");
 	let input = _mm_loadu_si128(chunk.as_ptr() as *const _);
 
 	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, input);
@@ -193,13 +195,13 @@ unsafe fn shuffle_lookup(record: &str) -> Vec<usize> {
 
 	let t0 = _mm_cmpeq_epi8(intersection, _mm_setzero_si128());
 	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, t0);
-	println!("t0: {dst:#x?}");
+	// println!("t0: {dst:#x?}");
 
 	// let t1 = _mm_andnot_si128(t0, _mm_setzero_si128());
 	// let t1 = _mm_andnot_si128(t0, _mm_set1_epi8(0xF));
 	let t1 = _mm_xor_si128(t0, _mm_cmpeq_epi8(t0, t0));
 	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, t1);
-	println!("t1: {dst:#x?}");
+	// println!("t1: {dst:#x?}");
 
 	// let mask = _mm_and_si128(t1, input);
 	// _mm_storeu_si128(dst.as_mut_ptr() as *mut _, mask);
@@ -260,7 +262,8 @@ unsafe fn shuffle_lookup(record: &str) -> Vec<usize> {
 	// println!("t0: {dst:#x?}");
 
 	// let t1 = _mm_andnot_si128(t0, _mm_setzero_si128());
-	let t1 = _mm_andnot_si128(t0, _mm_set1_epi16(0xFF));
+	// let t1 = _mm_andnot_si128(t0, _mm_set1_epi16(0xFF));
+	let t1 = _mm_xor_si128(t0, _mm_cmpeq_epi8(t0, t0));
 	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, t1);
 	// println!("t1: {dst:#x?}");
 
@@ -279,8 +282,15 @@ unsafe fn shuffle_lookup(record: &str) -> Vec<usize> {
 	    let v = bits.trailing_zeros() as i32;
 	    bits &= bits.wrapping_sub(1);
 	    let offset = v as usize + idx;
-	    println!("{offset} ({v})");
+	    //println!("{offset} ({v})");
+	    //println!("{offset} ({v} -> '{}')", *record.as_bytes().get(offset).unwrap() as char);
 	    res_vec.push(offset);
+	    match record.as_bytes().get(offset) {
+		Some(ch) => {
+		    println!("{offset} ({v} -> '{}')", *ch as char);
+		}
+		None => {break}
+	    }
 	}
     }
 
@@ -381,21 +391,31 @@ fn main() {
 			     Phase::Timestamp => unreachable!()
 			 }
 		},
-		0x0A => {println!{"New line"}},
+		0x0A => {println!{"New line"};
+			 match phase {
+			     Phase::Timestamp => {
+				// let item = line.get_unchecked(item);
+				//println!("{item}");
+				items.push(Node::Timestamp(item));
+				phase = Phase::Measurement;
+			     }
+			     _ => todo!("Reset phase and parse new influx line") 
+			 }
+		},
 		0x00 => {println!("EOL")},
 		_ => unreachable!()
 	    }
 	    idx = offset + 1;
 	}
-	for item in items {
-	    println!("{item:?}");
-	}
+	let end = SystemTime::now();
+	let duration = end.duration_since(start);
+	println!("Took: {:?} ({} bytes)", duration, line.len());
+	println!("{}B/s", line.len() as f64 / duration.unwrap().as_secs_f64());
+	// for item in items {
+	//     println!("{item:?}");
+	// }
     };
 
-    let end = SystemTime::now();
-    let duration = end.duration_since(start);
-    // println!("Took: {:?}", duration);
-    println!("{}B/s", res.first().unwrap().len() as f64 / duration.unwrap().as_secs_f64());
 
 }
 
@@ -406,23 +426,35 @@ mod tests {
     #[test]
     fn basic() {
 	let line0 = String::from(",=");
-	// unsafe {
-	//     let offsets = shuffle_lookup(&line0);
-	//     println!("{offsets:?}");
-	//     assert_eq!(offsets.len(), 2);
-	//     assert_eq!(offsets, vec![0,1]);
-	// }
+	unsafe {
+	    let offsets = shuffle_lookup(&line0);
+	    println!("{offsets:?}");
+	    assert_eq!(offsets.len(), 2);
+	    assert_eq!(offsets, vec![0,1]);
+	}
 	let line1 = String::from("ab,cd=ef gh=15i,jk=16i 12345678");
 	unsafe {
 	    let offsets = shuffle_lookup(&line1);
 	    println!("{offsets:?}");
-	    assert_eq!(offsets.len(), 6);
-	    assert_eq!(offsets, vec![2,5,8,11,14,15]);
+	    assert_eq!(offsets.len(), 7);
+	    assert_eq!(offsets, vec![2,5,8,11,15,18,22]);
 	}
-	// let line1 = String::from("test,od27r=11YaN,bHueo=zzL78,JQB4N=txYCM,uIiRV=31biD,JdqDb=PFxji e65Xk=3772672500i,7Tdmm=964201946i,VygQy=888662919i,vC0Ic=2202051695i,t3GsG=4284953162i 1695559737257");
-	// unsafe {
-	//     let res = shuffle_lookup(&line1);
-	//     assert_eq!(res.len(), 26);
-	// }
+	let line2 = String::from("ab gh=15i,jk=16i 12345678");
+	unsafe {
+	    let offsets = shuffle_lookup(&line2);
+	    println!("{offsets:?}");
+	    assert_eq!(offsets.len(), 5);
+	    assert_eq!(offsets, vec![2,5,9,12,16]);
+	}
+	let line3 = String::from("test,od27r=11YaN,bHueo=zzL78,JQB4N=txYCM,uIiRV=31biD,JdqDb=PFxji e65Xk=3772672500i,7Tdmm=964201946i,VygQy=888662919i,vC0Ic=2202051695i,t3GsG=4284953162i 1695559737257");
+	unsafe {
+	    let res = shuffle_lookup(&line3);
+	    assert_eq!(res.len(), 21);
+	}
+	let line4 = String::from("ab gh=15i,jk=16i 12345678\ncd,xe=la oiw=61i 12345678");
+	unsafe {
+	    let res = shuffle_lookup(&line4);
+	    assert_eq!(res.len(), 11);
+	}
     }
 }
