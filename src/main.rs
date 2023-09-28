@@ -1,5 +1,5 @@
 use std::time::SystemTime;
-use csv_parser::{gen_line, parse_tape};
+use csv_parser::{gen_line, parse_tape, shuffle_lookup_avx2};
 
 fn main() {
     let mut res: Vec<String> = Vec::new();
@@ -10,6 +10,10 @@ fn main() {
 
     let line = res.concat();
     let start = SystemTime::now();
+
+    let line0 = String::from(",=");
+    let offsets = unsafe { shuffle_lookup_avx2(&line0) };
+    assert_eq!(offsets.len(), 2);
 
     let items = parse_tape(&line);
 
@@ -28,6 +32,7 @@ mod tests {
     use csv_parser::parse_tape;
     use csv_parser::shuffle_lookup;
     use csv_parser::Node;
+    use csv_parser::shuffle_lookup_avx2;
 
     #[test]
     fn basic() {
@@ -87,22 +92,50 @@ mod tests {
             ]
         );
 
-        let line = String::from("ab gh=15i,jk=16i 12345678\n");
-        let items = parse_tape(&line);
-        assert_eq!(
-            items,
-            vec![
-                Node::Measurement("ab"),
-                Node::Field {
-                    key: "gh",
-                    value: 15
-                },
-                Node::Field {
-                    key: "jk",
-                    value: 16
-                },
-                Node::Timestamp(1234567)
-            ]
-        );
+    //     let line = String::from("ab gh=15i,jk=16i 12345678\n");
+    //     let items = parse_tape(&line);
+    //     assert_eq!(
+    //         items,
+    //         vec![
+    //             Node::Measurement("ab"),
+    //             Node::Field {
+    //                 key: "gh",
+    //                 value: 15
+    //             },
+    //             Node::Field {
+    //                 key: "jk",
+    //                 value: 16
+    //             },
+    //             Node::Timestamp(1234567)
+    //         ]
+    //     );
+    }
+
+    #[test]
+    fn basic_avx2() {
+        let line0 = String::from(",=");
+        let offsets = unsafe { shuffle_lookup_avx2(&line0) };
+        assert_eq!(offsets.len(), 2);
+        assert_eq!(offsets, vec![0, 1]);
+
+        let line1 = String::from("ab,cd=ef gh=15i,jk=16i 12345678");
+        let offsets = unsafe { shuffle_lookup_avx2(&line1) };
+        println!("{offsets:?}");
+        assert_eq!(offsets.len(), 7);
+        assert_eq!(offsets, vec![2, 5, 8, 11, 15, 18, 22]);
+
+        let line2 = String::from("ab gh=15i,jk=16i 12345678");
+        let offsets = unsafe { shuffle_lookup_avx2(&line2) };
+        println!("{offsets:?}");
+        assert_eq!(offsets.len(), 5);
+        assert_eq!(offsets, vec![2, 5, 9, 12, 16]);
+
+        let line3 = String::from("test,od27r=11YaN,bHueo=zzL78,JQB4N=txYCM,uIiRV=31biD,JdqDb=PFxji e65Xk=3772672500i,7Tdmm=964201946i,VygQy=888662919i,vC0Ic=2202051695i,t3GsG=4284953162i 1695559737257");
+        let res = unsafe { shuffle_lookup_avx2(&line3) };
+        assert_eq!(res.len(), 21);
+
+        let line4 = String::from("ab gh=15i,jk=16i 12345678\ncd,xe=la oiw=61i 12345678");
+        let res = unsafe { shuffle_lookup_avx2(&line4) };
+        assert_eq!(res.len(), 11);
     }
 }

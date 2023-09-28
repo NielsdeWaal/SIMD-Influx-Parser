@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput, BenchmarkId};
 
-use csv_parser::{gen_line, parse_int, parse_tape};
+use csv_parser::{gen_line, parse_int, parse_tape, parse_tape_avx2};
 
 fn parse_int_bench(c: &mut Criterion) {
     let value = String::from("64i");
@@ -38,5 +38,24 @@ fn parse_influx(c: &mut Criterion) {
     }
 }
 
-criterion_group!(benches, parse_int_bench, parse_influx);
+fn parse_influx_avx2(c: &mut Criterion) {
+    let mut res: Vec<String> = Vec::new();
+
+    let mut group = c.benchmark_group("parse_influx_avx2");
+    for size  in [10, 100, 1000, 10000, 100000, 1000000].iter() {
+	for _ in 0..*size {
+	    res.push(gen_line());
+	}
+	let line = res.concat();
+
+	group.throughput(Throughput::Bytes(line.len() as u64));
+	group.bench_with_input(BenchmarkId::from_parameter(size), &line, |b, line| {
+	    b.iter(|| parse_tape_avx2(black_box(&line)));
+	});
+
+	res.clear();
+    }
+}
+
+criterion_group!(benches, parse_int_bench, parse_influx, parse_influx_avx2);
 criterion_main!(benches);
