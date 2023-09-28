@@ -176,60 +176,25 @@ pub unsafe fn shuffle_lookup(record: &str) -> Vec<usize> {
 	/* f */ 0x00,
     ];
 
-    let mut dst = [0 as u8; SIMD_LENGTH];
     while idx < lenminus16 {
-	//let test = b"test=2t\0\0\0\0\0\0\0\0\0";
-	// let input = _mm_loadu_si128(record.as_ptr() as *const _);
-	// let chunk = record.get_unchecked(idx..idx + SIMD_LENGTH);
 	let mut chunk: [u8; SIMD_LENGTH] = [0x00; SIMD_LENGTH];
 	chunk.as_mut_ptr().copy_from(record.as_ptr().add(idx), SIMD_LENGTH);
-	// println!("chunk: {chunk:#x?}");
 	let input = _mm_loadu_si128(chunk.as_ptr() as *const _);
-
-	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, input);
-	// println!("input: {dst:#x?}");
 
 	let lower_nibbles = _mm_and_si128(input, _mm_set1_epi8(0x0F));
 	let higher_nibbles = _mm_and_si128(_mm_srli_epi16(input, 4), _mm_set1_epi8(0x0F));
 
 	let lo_translated = _mm_shuffle_epi8(
 	    _mm_load_si128(low_nibbles.as_ptr() as *const _), lower_nibbles);
-	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, lo_translated);
-	// println!("lo_translated: {dst:#x?}");
 	let hi_translated = _mm_shuffle_epi8(
 	    _mm_load_si128(high_nibbles.as_ptr() as *const _), higher_nibbles);
-	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, hi_translated);
-	// println!("hi_translated: {dst:#x?}");
 
 	let intersection = _mm_and_si128(lo_translated, hi_translated);
 
-	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, intersection);
-	// println!("intersection: {dst:#x?}");
-
 	let t0 = _mm_cmpeq_epi8(intersection, _mm_setzero_si128());
-	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, t0);
-	// println!("t0: {dst:#x?}");
-
-	// let t1 = _mm_andnot_si128(t0, _mm_setzero_si128());
-	// let t1 = _mm_andnot_si128(t0, _mm_set1_epi8(0xF));
 	let t1 = _mm_xor_si128(t0, _mm_cmpeq_epi8(t0, t0));
-	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, t1);
-	// println!("t1: {dst:#x?}");
 
-	// let mask = _mm_and_si128(t1, input);
-	// _mm_storeu_si128(dst.as_mut_ptr() as *mut _, mask);
-	// println!("t1: {dst:#x?}");
-
-	// let test = u64::from(static_cast_u32!())
 	let mut bits = _mm_movemask_epi8(t1);
-	//let cnt = bits.count_ones() as usize;
-	// println!("res: {:016b}", bits);
-	//println!("Ones count: {} ({:#032b})", cnt, bits);
-
-	// let state_change = _mm_cmpeq_epi8(input, _mm_set1_epi8(0x20));
-	// _mm_storeu_si128(dst.as_mut_ptr() as *mut _, state_change);
-	// println!("state_change: {dst:#x?}");
-	// println!("State changed: {}", _mm_testz_si128(state_change, state_change) == 0);
 
 	while bits != 0 {
 	    let v = bits.trailing_zeros() as i32;
@@ -243,53 +208,24 @@ pub unsafe fn shuffle_lookup(record: &str) -> Vec<usize> {
     }
 
     if idx < len {
-	// let mut dst = [0 as u8; SIMD_LENGTH];
 	let mut buf: [u8; SIMD_LENGTH] = [0x00; SIMD_LENGTH];
 	buf.as_mut_ptr().copy_from(record.as_ptr().add(idx), len - idx);
-	//println!("Remaining: {:?}", buf);
 	let input = _mm_loadu_si128(buf.as_ptr() as *const _);
-	// println!("input: {buf:#x?}");
-
-	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, input);
-	// println!("input: {dst:#x?}");
 
 	let lower_nibbles = _mm_and_si128(input, _mm_set1_epi8(0x0F));
 	let higher_nibbles = _mm_and_si128(_mm_srli_epi16(input, 4), _mm_set1_epi8(0x0F));
 
 	let lo_translated = _mm_shuffle_epi8(
 	    _mm_load_si128(low_nibbles.as_ptr() as *const _), lower_nibbles);
-	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, lo_translated);
-	// println!("lo_translated: {dst:#x?}");
 	let hi_translated = _mm_shuffle_epi8(
 	    _mm_load_si128(high_nibbles.as_ptr() as *const _), higher_nibbles);
-	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, hi_translated);
-	// println!("hi_translated: {dst:#x?}");
 
 	let intersection = _mm_and_si128(lo_translated, hi_translated);
 
-	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, intersection);
-	// println!("intersection: {dst:#x?}");
-
 	let t0 = _mm_cmpeq_epi8(intersection, _mm_setzero_si128());
-	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, t0);
-	// println!("t0: {dst:#x?}");
-
-	// let t1 = _mm_andnot_si128(t0, _mm_setzero_si128());
-	// let t1 = _mm_andnot_si128(t0, _mm_set1_epi16(0xFF));
 	let t1 = _mm_xor_si128(t0, _mm_cmpeq_epi8(t0, t0));
-	_mm_storeu_si128(dst.as_mut_ptr() as *mut _, t1);
-	// println!("t1: {dst:#x?}");
 
-	// let test = u64::from(static_cast_u32!())
 	let mut bits = _mm_movemask_epi8(t1);
-	//let cnt = bits.count_ones() as usize;
-	// println!("res: {:016b}", bits);
-	//println!("Ones count: {} ({:#032b})", cnt, bits);
-
-	// let state_change = _mm_cmpeq_epi8(input, _mm_set1_epi8(0x20));
-	// _mm_storeu_si128(dst.as_mut_ptr() as *mut _, state_change);
-	// // println!("state_change: {dst:#x?}");
-	// println!("State changed: {}", _mm_testz_si128(state_change, state_change) == 0);
 
 	while bits != 0 {
 	    let v = bits.trailing_zeros() as i32;
