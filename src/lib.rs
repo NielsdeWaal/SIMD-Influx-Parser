@@ -425,7 +425,9 @@ pub fn parse_tape(line: &str) -> Vec<Node> {
 	match line.as_bytes()[offset] {
 	    0x20 => {//println!("SPACE");
 			match phase {
-			    Phase::Measurement => {phase = Phase::FieldSet;},
+			    Phase::Measurement => {
+				items.push(Node::Measurement(item));
+				phase = Phase::FieldSet;},
 			    Phase::TagSet => {
 				if let Node::Tag{key: _, value} = items.last_mut().unwrap()
 				{
@@ -524,7 +526,9 @@ pub fn parse_tape_avx2(line: &str) -> Vec<Node> {
 	match line.as_bytes()[offset] {
 	    0x20 => {//println!("SPACE");
 			match phase {
-			    Phase::Measurement => {phase = Phase::FieldSet;},
+			    Phase::Measurement => {
+				items.push(Node::Measurement(item));
+				phase = Phase::FieldSet;},
 			    Phase::TagSet => {
 				if let Node::Tag{key: _, value} = items.last_mut().unwrap()
 				{

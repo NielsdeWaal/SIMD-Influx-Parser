@@ -92,23 +92,23 @@ mod tests {
             ]
         );
 
-    //     let line = String::from("ab gh=15i,jk=16i 12345678\n");
-    //     let items = parse_tape(&line);
-    //     assert_eq!(
-    //         items,
-    //         vec![
-    //             Node::Measurement("ab"),
-    //             Node::Field {
-    //                 key: "gh",
-    //                 value: 15
-    //             },
-    //             Node::Field {
-    //                 key: "jk",
-    //                 value: 16
-    //             },
-    //             Node::Timestamp(1234567)
-    //         ]
-    //     );
+        let line = String::from("ab gh=15i,jk=16i 12345678\n");
+        let items = parse_tape(&line);
+        assert_eq!(
+            items,
+            vec![
+                Node::Measurement("ab"),
+                Node::Field {
+                    key: "gh",
+                    value: 15
+                },
+                Node::Field {
+                    key: "jk",
+                    value: 16
+                },
+                Node::Timestamp(1234567)
+            ]
+        );
     }
 
     #[test]
