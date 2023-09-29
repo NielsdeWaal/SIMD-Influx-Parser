@@ -1,5 +1,5 @@
 use std::time::SystemTime;
-use csv_parser::{gen_line, parse_tape, shuffle_lookup_avx2};
+use influx_parser::{gen_line, parse_tape, shuffle_lookup_avx2};
 
 fn main() {
     let mut res: Vec<String> = Vec::new();
@@ -28,11 +28,11 @@ fn main() {
 
 #[cfg(test)]
 mod tests {
-    use csv_parser::parse_int;
-    use csv_parser::parse_tape;
-    use csv_parser::shuffle_lookup;
-    use csv_parser::Node;
-    use csv_parser::shuffle_lookup_avx2;
+    use influx_parser::parse_int;
+    use influx_parser::parse_tape;
+    use influx_parser::shuffle_lookup;
+    use influx_parser::Node;
+    use influx_parser::shuffle_lookup_avx2;
 
     #[test]
     fn basic() {
