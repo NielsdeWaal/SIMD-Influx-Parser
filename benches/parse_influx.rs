@@ -1,6 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion, Throughput, BenchmarkId};
 
-use csv_parser::{gen_line, parse_int, parse_tape, parse_tape_avx2};
+use influx_parser::{gen_line, parse_int, parse_tape, parse_tape_avx2};
 
 fn parse_int_bench(c: &mut Criterion) {
     let value = String::from("64i");
