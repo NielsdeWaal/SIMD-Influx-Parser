@@ -1,4 +1,4 @@
-use influx_parser::{gen_line, parse_tape, shuffle_lookup_avx2};
+use influx_parser::{gen_line, parse_tape};
 use std::time::SystemTime;
 
 fn main() {
@@ -137,27 +137,27 @@ mod tests {
     fn basic_avx2() {
         let line0 = String::from(",=");
         let offsets = unsafe { shuffle_lookup_avx2(&line0) };
-        assert_eq!(offsets.len(), 2);
-        assert_eq!(offsets, vec![0, 1]);
+        assert_eq!(offsets.len(), 3);
+        assert_eq!(offsets, vec![0, 1, 2]);
 
         let line1 = String::from("ab,cd=ef gh=15i,jk=16i 12345678");
         let offsets = unsafe { shuffle_lookup_avx2(&line1) };
         println!("{offsets:?}");
-        assert_eq!(offsets.len(), 7);
-        assert_eq!(offsets, vec![2, 5, 8, 11, 15, 18, 22]);
+        assert_eq!(offsets.len(), 8);
+        assert_eq!(offsets, vec![2, 5, 8, 11, 15, 18, 22, 31]);
 
         let line2 = String::from("ab gh=15i,jk=16i 12345678");
         let offsets = unsafe { shuffle_lookup_avx2(&line2) };
         println!("{offsets:?}");
-        assert_eq!(offsets.len(), 5);
-        assert_eq!(offsets, vec![2, 5, 9, 12, 16]);
+        assert_eq!(offsets.len(), 6);
+        assert_eq!(offsets, vec![2, 5, 9, 12, 16, 25]);
 
         let line3 = String::from("test,od27r=11YaN,bHueo=zzL78,JQB4N=txYCM,uIiRV=31biD,JdqDb=PFxji e65Xk=3772672500i,7Tdmm=964201946i,VygQy=888662919i,vC0Ic=2202051695i,t3GsG=4284953162i 1695559737257");
         let res = unsafe { shuffle_lookup_avx2(&line3) };
-        assert_eq!(res.len(), 21);
+        assert_eq!(res.len(), 22);
 
         let line4 = String::from("ab gh=15i,jk=16i 12345678\ncd,xe=la oiw=61i 12345678");
         let res = unsafe { shuffle_lookup_avx2(&line4) };
-        assert_eq!(res.len(), 11);
+        assert_eq!(res.len(), 12);
     }
 }

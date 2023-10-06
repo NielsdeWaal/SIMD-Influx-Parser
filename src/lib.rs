@@ -279,7 +279,7 @@ pub unsafe fn shuffle_lookup_avx2(record: &str) -> Vec<usize> {
 	/* d */ 0x04, // "="
 	/* e */ 0x00,
 	/* f */ 0x00,
-	/* 0 */ 0x01, // " "
+	/* 0 */ 0x01 | 0x10, // " " | "\0"
 	/* 1 */ 0x00,
 	/* 2 */ 0x00,
 	/* 3 */ 0x00,
@@ -315,7 +315,7 @@ pub unsafe fn shuffle_lookup_avx2(record: &str) -> Vec<usize> {
 	/* d */ 0x00,
 	/* e */ 0x00,
 	/* f */ 0x00,
-	/* 0 */ 0x20, // "\n"
+	/* 0 */ 0x20 | 0x10, // "\n" | "\0"
 	/* 1 */ 0x00,
 	/* 2 */ 0x01 | 0x02, // " " | ","
 	/* 3 */ 0x04, // "="
@@ -392,8 +392,11 @@ pub unsafe fn shuffle_lookup_avx2(record: &str) -> Vec<usize> {
 	    let v = bits.trailing_zeros() as i32;
 	    bits &= bits.wrapping_sub(1);
 	    let offset = v as usize + idx;
-	    // println!("{offset} ({v} -> '{}')", *record.as_bytes().get(offset).unwrap() as char);
 	    res_vec.push(offset);
+	    match record.as_bytes().get(offset) {
+		Some(_) => {}
+		None => {break}
+	    }
 	}
     }
     
@@ -401,18 +404,14 @@ pub unsafe fn shuffle_lookup_avx2(record: &str) -> Vec<usize> {
 }
 
 pub fn parse_tape(line: &str) -> Vec<Node> {
-	//let line = res.first_mut().unwrap();
-	// let line = res.clone().into_iter().fold(String::new(), |acc, x| acc + &x);
     let x = unsafe {shuffle_lookup(&line)};
     let mut items: Vec<Node> = Vec::with_capacity(x.len());
-    //println!("{x:?}");
 
     let mut idx: usize = 0;
-    let mut phase = Phase::Measurement;
+    let mut phase: Phase = Phase::Measurement;
 
     for offset in x {
 	if offset >= line.len() {
-	    // TODO final case
 	    if phase == Phase::Timestamp {
 		let item = unsafe {line.get_unchecked(idx..line.len())};
 		//println!("{item}");
@@ -501,18 +500,14 @@ pub fn parse_tape(line: &str) -> Vec<Node> {
 }
 
 pub fn parse_tape_avx2(line: &str) -> Vec<Node> {
-	//let line = res.first_mut().unwrap();
-	// let line = res.clone().into_iter().fold(String::new(), |acc, x| acc + &x);
     let x = unsafe {shuffle_lookup_avx2(&line)};
     let mut items: Vec<Node> = Vec::with_capacity(x.len());
-    //println!("{x:?}");
 
     let mut idx: usize = 0;
     let mut phase = Phase::Measurement;
 
     for offset in x {
 	if offset >= line.len() {
-	    // TODO final case
 	    if phase == Phase::Timestamp {
 		let item = unsafe {line.get_unchecked(idx..line.len())};
 		//println!("{item}");
@@ -581,7 +576,7 @@ pub fn parse_tape_avx2(line: &str) -> Vec<Node> {
 			    Phase::Timestamp => unreachable!()
 			}
 	    },
-	    0x0A => {//println!{"New line"};
+	    0x00 | 0x0A => {//println!{"New line"};
 			match phase {
 			    Phase::Timestamp => {
 			    // let item = line.get_unchecked(item);
@@ -592,7 +587,6 @@ pub fn parse_tape_avx2(line: &str) -> Vec<Node> {
 			    _ => todo!("Reset phase and parse new influx line") 
 			}
 	    },
-	    0x00 => {println!("EOL")},
 	    _ => unreachable!()
 	}
     idx = offset + 1;
