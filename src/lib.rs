@@ -261,7 +261,7 @@ pub unsafe fn shuffle_lookup_avx2(record: &str) -> Vec<usize> {
     let mut idx: usize = 0;
 
     let low_nibbles: [u8; 32] = [
-	/* 0 */ 0x01, // " "
+	/* 0 */ 0x01 | 0x10, // " " | "\0"
 	/* 1 */ 0x00,
 	/* 2 */ 0x00,
 	/* 3 */ 0x00,
@@ -299,7 +299,7 @@ pub unsafe fn shuffle_lookup_avx2(record: &str) -> Vec<usize> {
 	/* f */ 0x00,
     ];
     let high_nibbles: [u8; 32] = [
-	/* 0 */ 0x20, // "\n"
+	/* 0 */ 0x20 | 0x10, // "\n" | "\0"
 	/* 1 */ 0x00,
 	/* 2 */ 0x01 | 0x02, // " " | ","
 	/* 3 */ 0x04, // "="
@@ -421,7 +421,7 @@ pub fn parse_tape(line: &str) -> Vec<Node> {
 	    break;
 	}
 	let item = unsafe {line.get_unchecked(idx..offset)};
-	//println!("{} {} {} ", offset, line.as_bytes()[offset], item);
+	// println!("{} {} ({:x}) {} {:?}", offset, line.as_bytes()[offset], line.as_bytes()[offset], item, phase);
 	match line.as_bytes()[offset] {
 	    0x20 => {//println!("SPACE");
 			match phase {
@@ -481,7 +481,7 @@ pub fn parse_tape(line: &str) -> Vec<Node> {
 			    Phase::Timestamp => unreachable!()
 			}
 	    },
-	    0x0A => {//println!{"New line"};
+	    0x00 | 0x0A => {// println!{"New line"};
 			match phase {
 			    Phase::Timestamp => {
 			    // let item = line.get_unchecked(item);
@@ -492,7 +492,6 @@ pub fn parse_tape(line: &str) -> Vec<Node> {
 			    _ => todo!("Reset phase and parse new influx line") 
 			}
 	    },
-	    0x00 => {println!("EOL")},
 	    _ => unreachable!()
 	}
     idx = offset + 1;
