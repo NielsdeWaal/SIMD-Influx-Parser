@@ -67,7 +67,7 @@ pub fn gen_line() -> String {
     res
 }
 
-/// Characters: {" ", "i", "=", ",", "\n"} -> {0x20, 0x69, 0x3D, 0x2C, 0x0A}
+/// Characters: {" ", "i", "=", ",", "\n", "\0"} -> {0x20, 0x69, 0x3D, 0x2C, 0x0A, 0x00}
 /// lo / hi nibble
 ///   +--------------------------------
 ///   | 0 1 2 3 4 5 6 7 8 9 a b c d e f
@@ -133,8 +133,8 @@ pub unsafe fn shuffle_lookup(record: &str) -> Vec<usize> {
     let low_nibbles: [u8; 16] = [
 	// /* 0 */ 0x01 | 0x10 | 0x20, // " " | "\0" | "\n"
 	// /* 0 */ 0x01 | 0x20, // " " | "\n"
-	/* 0 */ 0x01, // " "
-	// /* 0 */ 0x01 | 0x10, // " " | "\0"
+	// /* 0 */ 0x01, // " "
+	/* 0 */ 0x01 | 0x10, // " " | "\0"
 	/* 1 */ 0x00,
 	/* 2 */ 0x00,
 	/* 3 */ 0x00,
@@ -155,9 +155,9 @@ pub unsafe fn shuffle_lookup(record: &str) -> Vec<usize> {
     ];
     let high_nibbles: [u8; 16] = [
 	// /* 0 */ 0x10, // "\0"
-	// /* 0 */ 0x10 | 0x20, // "\0" | "\n"
+	/* 0 */ 0x10 | 0x20, // "\0" | "\n"
 	// /* 0 */ 0x00,
-	/* 0 */ 0x20, // "\n"
+	// /* 0 */ 0x20, // "\n"
 	/* 1 */ 0x00,
 	/* 2 */ 0x01 | 0x02, // " " | ","
 	/* 3 */ 0x04, // "="
@@ -486,8 +486,8 @@ pub fn parse_tape(line: &str) -> Vec<Node> {
 			    Phase::Timestamp => {
 			    // let item = line.get_unchecked(item);
 			    //println!("{item}");
-			    items.push(Node::Timestamp(parse_int(item)));
-			    phase = Phase::Measurement;
+				items.push(Node::Timestamp(parse_int(item)));
+				phase = Phase::Measurement;
 			    }
 			    _ => todo!("Reset phase and parse new influx line") 
 			}
